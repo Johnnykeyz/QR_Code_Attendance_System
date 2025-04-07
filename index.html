@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>QR Code Attendance System</title>
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="QR Code scanner for student attendance tracking">
+    <meta name="theme-color" content="#3498db">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <!-- Original CSS -->
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .scan-area {
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .scan-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .scan-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        
+        .clear-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .clear-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .export-btn {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .export-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .counter {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .status-bar {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f2f2f2;
+            color: #555;
+        }
+        
+        .success-flash {
+            animation: flashGreen 1s;
+        }
+        
+        @keyframes flashGreen {
+            0% { background-color: #d4edda; }
+            100% { background-color: transparent; }
+        }
+        
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+        }
+
+        /* PWA install button */
+        .install-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .install-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .offline-indicator {
+            background-color: #f1c40f;
+            text-align: center;
+            padding: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="offline-indicator" id="offlineIndicator">
+    You are currently offline. Some features may be limited.
+</div>
+<div class="container">
+    <h1>QR Code Attendance System</h1>
+    <div class="input-group">
+        <div class="input-field">
+            <label for="coursecode">Course Code:</label>
+            <input id="coursecode" placeholder="E.g. CSC101" type="text"/>
+        </div>
+        <div class="input-field">
+            <label for="date">Date:</label>
+            <input id="date" type="date"/>
+        </div>
+    </div>
+    <div class="scan-area">
+        <h3>Scan QR Code Here</h3>
+        <p>Focus cursor in the box below and scan a student's QR code</p>
+        <input autofocus="" class="scan-input" id="scanInput" placeholder="QR code data will appear here" type="text"/>
+    </div>
+    <div>
+        <button class="clear-btn" id="clearButton">Clear All Data</button>
+        <button class="export-btn" id="exportButton">Export to CSV</button>
+    </div>
+    <div class="stats">
+        <p>Total Students: <span class="counter" id="studentCount">0</span></p>
+    </div>
+    <div class="table-container">
+        <table id="attendanceTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Matric Number</th>
+                    <th>Department</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="attendanceBody">
+                <!-- Table rows will be added here -->
+            </tbody>
+        </table>
+    </div>
+    <div class="status-bar" id="statusBar">Ready to scan</div>
+</div>
+
+<button class="install-button" id="installButton">Install App</button>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const scanInput = document.getElementById('scanInput');
+        const attendanceBody = document.getElementById('attendanceBody');
+        const statusBar = document.getElementById('statusBar');
+        const coursecodeInput = document.getElementById('coursecode');
+        const dateInput = document.getElementById('date');
+        const clearButton = document.getElementById('clearButton');
+        const exportButton = document.getElementById('exportButton');
+        const studentCount = document.getElementById('studentCount');
+        const offlineIndicator = document.getElementById('offlineIndicator');
+        
+        // Set default date to today
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        dateInput.value = formattedDate;
+        
+        // Variables
+        let attendanceData = [];
+        
+        // Focus the scan input on page load
+        scanInput.focus();
+        
+        // Event listeners
+        scanInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                processQRData(this.value);
+                this.value = '';
+                event.preventDefault();
+            }
+        });
+        
+        // Always re-focus the input field
+        document.addEventListener('click', function() {
+            scanInput.focus();
+        });
+        
+        // Clear button
+        clearButton.addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear all attendance data?')) {
+                attendanceData = [];
+                attendanceBody.innerHTML = '';
+                updateStudentCount();
+                statusBar.textContent = 'All data cleared';
+                localStorage.removeItem('attendanceRecords');
+            }
+        });
+        
+        // Export button
+        exportButton.addEventListener('click', exportToCSV);
+        
+        // Functions
+        function processQRData(qrData) {
+            try {
+                //Robust QR parsing (handles commas in names)
+                const firstComma = qrData.indexOf(',');
+                const secondComma = qrData.indexOf(',', firstComma + 1);
+                
+                if (firstComma === -1 || secondComma === -1) {
+                    statusBar.textContent = 'Invalid QR format. Expected: Name,MatricNumber,Department';
+                    return;
+                }
+                
+                const name = qrData.slice(0, firstComma).trim();
+                const matric = qrData.slice(firstComma + 1, secondComma).trim();
+                const department = qrData.slice(secondComma + 1).trim();
+                
+                // Enhanced duplicate check (date + matric)
+                const isDuplicate = attendanceData.some(item => 
+                    item.matric === matric && 
+                    item.date === dateInput.value
+                );
+                
+                if (isDuplicate) {
+                    statusBar.textContent = `${name} already scanned today`;
+                    return;
+                }
+                
+                // Get current time
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Add to data array
+                attendanceData.push({ 
+                    name, 
+                    matric, 
+                    department, 
+                    time: timeString,
+                    date: dateInput.value  // Added date to records
+                });
+                
+                // Add to table
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${name}</td>
+                    <td>${matric}</td>
+                    <td>${department}</td>
+                    <td>${timeString}</td>
+                `;
+                attendanceBody.appendChild(row);
+                
+                // Visual feedback
+                row.classList.add('success-flash');
+                statusBar.textContent = `Scanned: ${name}`;
+                
+                // Update count
+                updateStudentCount();
+                
+                // Error handling for storage
+                try {
+                    localStorage.setItem('attendanceRecords', JSON.stringify(attendanceData));
+                } catch (e) {
+                    console.error("Storage error:", e);
+                    statusBar.textContent = "Warning: Data not saved (storage full)";
+                }
+                
+            } catch (error) {
+                //  General error handling
+                console.error("Scan error:", error);
+                statusBar.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        function updateStudentCount() {
+            studentCount.textContent = attendanceData.length;
+        }
+        
+        function exportToCSV() {
+            if (!coursecodeInput.value.trim()) {
+                alert('Please enter a course code');
+                return;
+            }
+            
+            if (attendanceData.length === 0) {
+                alert('No attendance data to export');
+                return;
+            }
+            
+            const course = coursecodeInput.value.trim();
+            const date = dateInput.value;
+            const filename = `${course}_${date}.csv`;
+            
+            // CSV injection protection
+            function escapeCSV(text) {
+                if (typeof text !== 'string') text = String(text);
+                if (/^[=@+-]/.test(text)) {
+                    return "'" + text.replace(/"/g, '""');
+                }
+                return '"' + text.replace(/"/g, '""') + '"';
+            }
+            
+            // Create CSV content
+            let csvContent = 'Name,Matric Number,Department,Time,Date\n';
+            attendanceData.forEach(student => {
+                csvContent += [
+                    escapeCSV(student.name),
+                    escapeCSV(student.matric),
+                    escapeCSV(student.department),
+                    escapeCSV(student.time),
+                    escapeCSV(student.date)
+                ].join(',') + '\n';
+            });
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            // Create download URL
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            statusBar.textContent = `Attendance exported to ${filename}`;
+        }
+
+        // Safe data loading
+        try {
+            const savedData = localStorage.getItem('attendanceRecords');
+            if (savedData) {
+                attendanceData = JSON.parse(savedData);
+                updateTable();
+                updateStudentCount();
+            }
+        } catch (e) {
+            console.error("Corrupted data reset:", e);
+            attendanceData = [];
+            localStorage.removeItem('attendanceRecords');
+        }
+
+        function updateTable() {
+            attendanceBody.innerHTML = '';
+            attendanceData.forEach(student => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.name}</td>
+                    <td>${student.matric}</td>
+                    <td>${student.department}</td>
+                    <td>${student.time}</td>
+                `;
+                attendanceBody.appendChild(row);
+            });
+        }
+
+        // PWA SPECIFIC CODE
+
+        // Check if the app is online or offline
+        function updateOnlineStatus() {
+            if (navigator.onLine) {
+                offlineIndicator.style.display = 'none';
+            } else {
+                offlineIndicator.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus(); // Initial check
+
+        // PWA Install prompt
+        let deferredPrompt;
+        const installButton = document.getElementById('installButton');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show the install button
+            installButton.style.display = 'block';
+        });
+
+        installButton.addEventListener('click', () => {
+            // Hide the install button
+            installButton.style.display = 'none';
+            // Show the install prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                deferredPrompt = null;
+            });
+        });
+    });
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+</script>
+</body>
+</html>
